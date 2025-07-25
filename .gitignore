@@ -9,3 +9,4 @@ __pychache__
 .idea
 test.db
 data.db
+trail.log

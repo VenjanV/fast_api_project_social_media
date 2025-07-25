@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from trail.database import comment_table, database, post_table
@@ -10,6 +12,8 @@ from trail.model.post import (
 )
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 
 async def find_post(post_id: int):
@@ -27,7 +31,9 @@ async def create_post(post: UserPostIn):
 
 @router.get("/post", response_model=list[UserPost])
 async def get_all_posts():
+    logger.info("This is log inside get all post")
     query = post_table.select()
+    logger.info(query)
     return await database.fetch_all(query)
 
 

@@ -3,4 +3,6 @@ fastapi
 sqlalchemy
 databases[aiosqlite]
 python-dotenv
-pydantic-settings
+rich
+asgi-correlation-id
+python-json-logger

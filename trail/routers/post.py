@@ -1,16 +1,26 @@
 import logging
+from enum import Enum
 
+import sqlalchemy
 from fastapi import APIRouter, HTTPException
 
-from trail.database import comment_table, database, post_table
+from trail.database import comment_table, database, like_table, post_table
 from trail.model.post import (
     Comment,
     CommentIn,
+    PostLike,
+    PostLikeIn,
+    PostLikeWithPost,
     UserPost,
     UserPostIn,
     UserPostWithComments,
 )
 
+select_like_query = (
+    sqlalchemy.select(post_table, sqlalchemy.func.count(like_table.c.id).label("likes"))
+    .select_from(post_table.outerjoin(like_table))
+    .group_by(post_table.c.id)
+)
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
@@ -29,10 +39,21 @@ async def create_post(post: UserPostIn):
     return {**data, "id": last_record_id}
 
 
-@router.get("/post", response_model=list[UserPost])
-async def get_all_posts():
+class PostSorting(str, Enum):
+    new = "new"
+    old = "old"
+    most_likes = "most_likes"
+
+
+@router.get("/post", response_model=list[PostLikeWithPost])
+async def get_all_posts(sorting: PostSorting = PostSorting.new):
     logger.info("This is log inside get all post")
-    query = post_table.select()
+    if sorting == PostSorting.new:
+        query = select_like_query.order_by(post_table.c.id.desc())
+    elif sorting == PostSorting.old:
+        query = select_like_query.order_by(post_table.c.id.asc())
+    else:
+        query = select_like_query.order_by(sqlalchemy.desc("likes"))
     logger.info(query)
     return await database.fetch_all(query)
 
@@ -56,7 +77,10 @@ async def get_comments_on_posts(post_id: int):
 
 @router.get("/post/{post_id}", response_model=UserPostWithComments)
 async def get_post_with_comments(post_id: int):
-    post = await find_post(post_id)
+    query = select_like_query.where(post_table.c.id == post_id)
+
+    post = await database.fetch_one(query)
+
     if not post:
         raise HTTPException(status_code=404, detail="Post not present")
 
@@ -64,3 +88,15 @@ async def get_post_with_comments(post_id: int):
         "post": post,
         "comments": await get_comments_on_posts(post_id),
     }
+
+
+@router.post("/like", response_model=PostLike, status_code=201)
+async def post_like(like: PostLikeIn):
+    post = await find_post(like.post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not present")
+
+    data = like.model_dump()
+    query = like_table.insert().values(data)
+    like_id = await database.execute(query)
+    return {**data, "id": like_id}

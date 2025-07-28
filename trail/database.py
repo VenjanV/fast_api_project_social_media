@@ -10,6 +10,15 @@ post_table = sqlalchemy.Table(
     metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
     sqlalchemy.Column("body", sqlalchemy.String),
+    # sqlalchemy.Column("user_id", sqlalchemy.ForeignKey("users.id"), nullable=True),
+)
+
+user_table = sqlalchemy.Table(
+    "users",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column("email", sqlalchemy.String, unique=True),
+    sqlalchemy.Column("password", sqlalchemy.String),
 )
 
 comment_table = sqlalchemy.Table(
@@ -18,6 +27,15 @@ comment_table = sqlalchemy.Table(
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
     sqlalchemy.Column("body", sqlalchemy.String),
     sqlalchemy.Column("post_id", sqlalchemy.ForeignKey("POST.id"), nullable=False),
+    # sqlalchemy.Column("user_id", sqlalchemy.ForeignKey("users.id"), nullable=True),
+)
+
+like_table = sqlalchemy.Table(
+    "likes",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column("post_id", sqlalchemy.ForeignKey("POST.id"), nullable=False),
+    # sqlalchemy.Column("user_id", sqlalchemy.ForeignKey("users.id"), nullable=True),
 )
 
 engine = sqlalchemy.create_engine(

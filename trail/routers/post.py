@@ -1,8 +1,9 @@
 import logging
 from enum import Enum
+from typing import Annotated
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from trail.database import comment_table, database, like_table, post_table
 from trail.model.post import (
@@ -15,6 +16,8 @@ from trail.model.post import (
     UserPostIn,
     UserPostWithComments,
 )
+from trail.model.user import User
+from trail.security import get_current_user
 
 select_like_query = (
     sqlalchemy.select(post_table, sqlalchemy.func.count(like_table.c.id).label("likes"))
@@ -32,8 +35,10 @@ async def find_post(post_id: int):
 
 
 @router.post("/post", response_model=UserPost, status_code=201)
-async def create_post(post: UserPostIn):
-    data = post.model_dump()
+async def create_post(
+    post: UserPostIn, CurrentUser: Annotated[User, Depends(get_current_user)]
+):
+    data = {**post.model_dump(), "user_id": CurrentUser.id}
     query = post_table.insert().values(data)
     last_record_id = await database.execute(query)
     return {**data, "id": last_record_id}
@@ -59,11 +64,14 @@ async def get_all_posts(sorting: PostSorting = PostSorting.new):
 
 
 @router.post("/comment", response_model=Comment, status_code=201)
-async def create_comment(comment: CommentIn):
+async def create_comment(
+    comment: CommentIn, CurrentUser: Annotated[User, Depends(get_current_user)]
+):
     post_id = await find_post(comment.post_id)
     if not post_id:
         raise HTTPException(status_code=404, detail="No post present")
-    data = comment.model_dump()
+    data = {**comment.model_dump(), "user_id": CurrentUser.id}
+
     query = comment_table.insert().values(data)
     last_record_id = await database.execute(query)
     return {**data, "id": last_record_id}
@@ -91,12 +99,14 @@ async def get_post_with_comments(post_id: int):
 
 
 @router.post("/like", response_model=PostLike, status_code=201)
-async def post_like(like: PostLikeIn):
+async def post_like(
+    like: PostLikeIn, CurrentUser: Annotated[User, Depends(get_current_user)]
+):
     post = await find_post(like.post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not present")
 
-    data = like.model_dump()
+    data = {**like.model_dump(), "user_id": CurrentUser.id}
     query = like_table.insert().values(data)
     like_id = await database.execute(query)
     return {**data, "id": like_id}

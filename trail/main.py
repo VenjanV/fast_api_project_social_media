@@ -8,6 +8,7 @@ from fastapi.exception_handlers import http_exception_handler
 from trail.database import database
 from trail.logging_config import Config_logger
 from trail.routers.post import router as post_router
+from trail.routers.user import router as user_router
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(post_router)
+app.include_router(user_router)
 app.add_middleware(CorrelationIdMiddleware)
 
 

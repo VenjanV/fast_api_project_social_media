@@ -1,14 +1,17 @@
 import os
 from typing import AsyncGenerator, Generator
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
-from httpx import ASGITransport, AsyncClient
+from httpx import ASGITransport, AsyncClient, Request, Response
 
 os.environ["ENV_STATE"] = "test"
 
+
 from trail.database import database, user_table
 from trail.main import app
+from trail.test.routers.test_post import create_post
 
 
 @pytest.fixture(scope="session")
@@ -24,7 +27,7 @@ def client() -> Generator:
 @pytest.fixture(autouse=True)
 async def db() -> AsyncGenerator:
     await database.connect()
-    yield
+    yield database
     await database.disconnect()
 
 
@@ -50,3 +53,18 @@ async def registered_user(async_client: AsyncClient):
 async def logged_in_token(async_client: AsyncClient, registered_user: dict):
     response = await async_client.post("/token", json=registered_user)
     return response.json()["access_token"]
+
+
+@pytest.fixture(autouse=True)
+async def mock_httpx_client(mocker):
+    mocked_client = mocker.patch("trail.tasks.httpx.AsyncClient")
+    mocked_async_client = Mock()
+    response = Response(status_code=200, content="", request=Request("Post", "//"))
+    mocked_async_client.post = AsyncMock(return_value=response)
+    mocked_client.return_value.__aenter__.return_value = mocked_async_client
+    return mocked_async_client
+
+
+@pytest.fixture()
+async def created_post(async_client: AsyncClient, logged_in_token: str):
+    return await create_post("test post", async_client, logged_in_token)

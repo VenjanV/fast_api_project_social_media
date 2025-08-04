@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Annotated
 
 import sqlalchemy
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from trail.database import comment_table, database, like_table, post_table
 from trail.model.post import (
@@ -18,6 +18,7 @@ from trail.model.post import (
 )
 from trail.model.user import User
 from trail.security import get_current_user
+from trail.tasks import generate_and_add_to_post
 
 select_like_query = (
     sqlalchemy.select(post_table, sqlalchemy.func.count(like_table.c.id).label("likes"))
@@ -36,11 +37,27 @@ async def find_post(post_id: int):
 
 @router.post("/post", response_model=UserPost, status_code=201)
 async def create_post(
-    post: UserPostIn, CurrentUser: Annotated[User, Depends(get_current_user)]
+    post: UserPostIn,
+    CurrentUser: Annotated[User, Depends(get_current_user)],
+    background_tasks: BackgroundTasks,
+    request: Request,
+    prompt: str = None,
 ):
     data = {**post.model_dump(), "user_id": CurrentUser.id}
+
     query = post_table.insert().values(data)
+
     last_record_id = await database.execute(query)
+
+    if prompt:
+        background_tasks.add_task(
+            generate_and_add_to_post,
+            last_record_id,
+            request.url_for("get_post_with_comments", post_id=last_record_id),
+            database,
+            prompt,
+        )
+
     return {**data, "id": last_record_id}
 
 

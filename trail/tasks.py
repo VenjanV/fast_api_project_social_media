@@ -14,6 +14,29 @@ class APIResponseError(Exception):
     pass
 
 
+async def send_email_to_user(to: str, subject: str, body: str):
+    logger.info(f"Sending emailto user {to}")
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"https://api.mailgun.net/v3/{config.MAIL_GUN_DOMAIN}/messages",
+                auth=("api", config.MAIL_GUN_API_KEY),
+                data={
+                    "from": f"Venjan <mailgun@{config.MAIL_GUN_DOMAIN}>",
+                    "to": [to],
+                    "subject": subject,
+                    "text": body,
+                },
+            )
+            logger.info(response)
+            response.raise_for_status()
+
+            return response
+
+        except httpx.HTTPStatusError as err:
+            raise APIResponseError("there is error sending email") from err
+
+
 async def _generate_cute_image(prompt: str):
     logger.info("Generating image")
     async with httpx.AsyncClient() as client:

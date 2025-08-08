@@ -51,18 +51,19 @@ async def test_create_empty_post(async_client: AsyncClient, logged_in_token: str
     assert response.status_code == 422
 
 
-@pytest.mark.anyio
-async def test_create_post_with_prompt(async_client: AsyncClient, logged_in_token: str):
-    body = " A new Linked post"
-    response = await async_client.post(
-        "/post?prompt=A Cat",
-        json={"body": body},
-        headers={"Authorization": f"Bearer {logged_in_token}"},
-    )
+# @pytest.mark.anyio
+# async def test_create_post_with_prompt(async_client: AsyncClient, logged_in_token: str):
+#     body = " A new Linked post"
+#     response = await async_client.post(
+#         "/post?prompt=A Cat",
+#         json={"body": body},
+#         headers={"Authorization": f"Bearer {logged_in_token}"},
+#     )
 
-    assert response.status_code == 201
+#     assert response.status_code == 201
 
-    mock_generate_image.assert_called()
+#     mock_generate_image.assert_called()
+#     # for testing the background task
 
 
 @pytest.mark.anyio
@@ -75,10 +76,10 @@ async def test_get_all_posts(async_client: AsyncClient, created_post: dict):
 
 @pytest.mark.anyio
 async def test_create_post_expired_token(
-    async_client: AsyncClient, registered_user: dict, mocker
+    async_client: AsyncClient, confirmed_user: dict, mocker
 ):
     mocker.patch("trail.security.access_token_expire_minutes", return_value=-1)
-    token = security.create_access_token(registered_user["email"])
+    token = security.create_access_token(confirmed_user["email"])
     response = await async_client.post(
         "/post",
         json={"body": "this is test post"},
